@@ -25,3 +25,38 @@
 
 
  WARNING : Everything folder should be name in lowerCase
+
+
+ Expected structure :
+
+ YOGA_APP
+│
+├── assets
+│   ├── config
+│   └── images
+│       ├── test
+│       └── train
+│
+├── docs
+│
+├── PoseClassification
+│   ├── __pycache__
+│   ├── bootstrap.py
+│   ├── khouluevre 2.py
+│   ├── khouluevre.py
+│   ├── pose_classifier.py
+│   ├── pose_embedding.py
+│   ├── utils.py
+│   └── visualize.py
+│
+├── venv
+│   ├── bin
+│   ├── include
+│   ├── lib
+│   └── pyvenv.cfg
+│
+├── .gitignore
+├── LICENSE
+├── main.ipynb
+├── README.md
+└── tuto.ipynb
