@@ -240,3 +240,16 @@ class BootstrapHelper(object):
                 ]
             )
             print("  {}: {}".format(pose_class_name, n_images))
+            def classify_posture(frame, pose, svm):
+                # Detect the pose landmarks using Mediapipe
+                results = pose.process(frame)
+                # Draw XZ projection and concatenate with the image.
+                output_frame = np.asarray(frame)
+                projection_xz = _draw_xz_projection(output_frame, results.pose_landmarks)
+                output_frame = np.concatenate((output_frame, projection_xz), axis=1)
+                # Extract the pose landmarks and calculate the HOG features
+                landmarks = np.array([[lmk.x, lmk.y, lmk.z] for lmk in results.pose_landmarks.landmark])
+                hog_features = hog(landmarks.flatten().reshape(-1, 3))
+                # Predict the posture using the SVM model
+                posture_pred = svm.predict([hog_features])[0]
+                return posture_pred
