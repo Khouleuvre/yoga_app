@@ -2,6 +2,7 @@
 *test/
 *train/
 *bootstraped/
+*all/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
