@@ -1,6 +1,7 @@
 #  Perso
 *test/
 *train/
+*bootstraped/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
