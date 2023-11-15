@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
-from skimage.feature import hog
 import argparse
 import time
 import mediapipe as mp
@@ -30,9 +29,9 @@ def load_yoga_postures(posture_dir):
 
     return yoga_postures, yoga_posture_labels
 
-def train_svm_model(X_train_hog, yoga_posture_labels):
+def train_svm_model(X_train, yoga_posture_labels):
     svm = SVC(kernel="linear", C=1.0, random_state=42)
-    svm.fit(X_train_hog, yoga_posture_labels)
+    svm.fit(X_train, yoga_posture_labels)
     return svm
 
 def classify_posture(frame, pose, svm):
@@ -43,16 +42,16 @@ def classify_posture(frame, pose, svm):
     if results.pose_landmarks is not None:
         # Extract the pose landmarks and calculate the HOG features
         landmarks = np.array([[lmk.x, lmk.y] for lmk in results.pose_landmarks.landmark])
-        hog_features = hog(landmarks.flatten().reshape(-1, 2))
+        landmarks = landmarks.flatten()
         # Predict the posture using the SVM model
-        posture_pred = svm.predict([hog_features])[0]
+        posture_pred = svm.predict([landmarks])[0]
     else:
         posture_pred = None
     return posture_pred
 
-def display_posture(frame, results, posture_pred):
+def display_posture(frame, pose, posture_pred):
     # Draw the pose landmarks and the predicted posture on the frame
-    mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+    mp_drawing.draw_landmarks(frame, pose.process(frame).pose_landmarks, mp_pose.POSE_CONNECTIONS)
     cv2.putText(frame, posture_pred, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     cv2.imshow('frame', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -74,11 +73,19 @@ def yoga_classifier():
     posture_dir = "assets/images/train"
     yoga_postures, yoga_posture_labels = load_yoga_postures(posture_dir)
 
-    # Extract features from the images using HOG
-    X_train_hog = np.array([hog(image) for image in yoga_postures])
+    # Extract features from the images using mediapipe
+    
 
     # Train a SVM model on the extracted features
-    svm = train_svm_model(X_train_hog, yoga_posture_labels)
+    X_train = []
+    for posture in yoga_postures:
+        results = mp_pose.Pose().process(posture)
+        if results.pose_landmarks is not None:
+            landmarks = np.array([[lmk.x, lmk.y] for lmk in results.pose_landmarks.landmark])
+            landmarks = landmarks.flatten()
+            X_train.append(landmarks)
+    X_train = np.array(X_train)
+    svm = train_svm_model(X_train, yoga_posture_labels)
 
     # Initialize Mediapipe pose detection
     pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
