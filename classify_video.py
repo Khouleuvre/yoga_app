@@ -368,14 +368,14 @@ def main():
 
             frame_counter += 1
 
-            current_time = round(time.time(),1)
+            current_time = round(time.time(), 1)
             print(current_time)
-            
+
             if current_time % 1 == 0:
                 try:
                     cv2.imwrite(filepath, frame)
                     # print("OUI")
-                
+
                     stream_embedder.generate_embbedings()
                     svc_classifier.predict()
                 except:
