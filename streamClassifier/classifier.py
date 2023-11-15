@@ -6,11 +6,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 from streamClassifier.utils import build_dataframe
 
+from streamClassifier.config import num_to_class_dict, class_to_num_dict
+
 
 class SvcClassifier:
     def __init__(self, training_csv_dir: str, stream_csv_dir:str):
         self.model = None
         self._training_dataset = self._get_training_dataset(training_csv_dir)
+        self._stream_csv_dir = stream_csv_dir
 
     def _get_training_dataset(self, training_csv_dir) -> pd.DataFrame:
         df = build_dataframe(source_dir=training_csv_dir)
@@ -65,11 +68,23 @@ class SvcClassifier:
             print("Classification Report:")
             print(self._classification_report)
 
-    def predict(self, X: pd.DataFrame) -> list:
+    def predict(self) -> list:
         """
         Predicts the class of the input
         """
         if self.model is None:
             raise Exception("Model not found. Run fit() first.")
+        
+        df = build_dataframe(source_dir=self._stream_csv_dir)
+        X = df.drop(
+            ["filename", "class", "class_num"], axis=1
+        )
+                
         y_pred = self.model.predict(X)
-        return y_pred
+        
+        classnum_pred = y_pred[0]
+        classname_pred = num_to_class_dict[classnum_pred]
+        
+        print(f"Predicted class: {classname_pred}")
+        print(f"Predicted class number: {classnum_pred}")
+         
