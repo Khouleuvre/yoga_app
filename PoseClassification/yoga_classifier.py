@@ -6,6 +6,7 @@ import argparse
 import time
 import mediapipe as mp
 import os
+import joblib
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
@@ -22,10 +23,11 @@ def load_yoga_postures(posture_dir):
             if image_name.startswith("."):
                 continue
             image_path = os.path.join(posture_folder, image_name)
-            image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-            image = cv2.resize(image, (64, 64))
-            yoga_postures.append(image)
-            yoga_posture_labels.append(posture_name)
+            if image_name.endswith(".jpg") or image_name.endswith(".png"):
+                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+                image = cv2.resize(image, (64, 64))
+                yoga_postures.append(image)
+                yoga_posture_labels.append(posture_name)
 
     return yoga_postures, yoga_posture_labels
 
@@ -66,42 +68,41 @@ def display_posture(frame, pose, posture_pred):
 def save_video(frame, out):
     out.write(frame)
 
-def yoga_classifier():
-    parser = argparse.ArgumentParser(description='Classify yoga postures in a video stream.')
-    parser.add_argument('input', metavar='INPUT', type=str, help='path to input video file or "camera" for live video stream')
-    parser.add_argument('--display', action='store_true', help='display the video stream with the recognized posture and a progress bar')
-    parser.add_argument('--save', metavar='OUTPUT', type=str, help='path to output video file')
-    args = parser.parse_args()
-
+def yoga_classifier(input_path, display=False, output_path=None, save_model_path=None):
     # Load the yoga postures and their labels
-    posture_dir = "assets/images/train"
+    posture_dir = "./assets/images/train"
     yoga_postures, yoga_posture_labels = load_yoga_postures(posture_dir)
 
-    # Extract features from the images using mediapipe
-    
-
-    # Train a SVM model on the extracted features
-    X_train = []
-    for posture in yoga_postures:
-        results = mp_pose.Pose().process(posture)
-        if results.pose_landmarks is not None:
-            landmarks = np.array([[lmk.x, lmk.y] for lmk in results.pose_landmarks.landmark])
-            landmarks = landmarks.flatten()
-            X_train.append(landmarks)
-    X_train = np.array(X_train)
-    svm = train_svm_model(X_train, yoga_posture_labels)
+    if save_model_path is not None and os.path.exists(save_model_path):
+        # Load the saved SVM model
+        svm = joblib.load(save_model_path)
+    else:
+        # Extract features from the images using mediapipe
+        X_train = []
+        for posture in yoga_postures:
+            results = mp_pose.Pose().process(posture)
+            if results.pose_landmarks is not None:
+                landmarks = np.array([[lmk.x, lmk.y] for lmk in results.pose_landmarks.landmark])
+                landmarks = landmarks.flatten()
+                X_train.append(landmarks)
+        X_train = np.array(X_train)
+        # Train a SVM model on the extracted features
+        svm = train_svm_model(X_train, yoga_posture_labels)
+        if save_model_path is not None:
+            # Save the trained SVM model
+            joblib.dump(svm, save_model_path)
 
     # Initialize Mediapipe pose detection
     pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
     # Use the trained model to classify new images of the yoga postures
-    if args.input == "camera":
+    if input_path == "camera":
         cap = cv2.VideoCapture(0)
     else:
-        cap = cv2.VideoCapture(args.input)
-    if args.save:
+        cap = cv2.VideoCapture(input_path)
+    if output_path is not None:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(args.save, fourcc, 20.0, (640, 480))
+        out = cv2.VideoWriter(output_path, fourcc, 20.0, (640, 480))
     start_time = time.time()
     posture_timer = 0
     posture_count = 0
@@ -125,14 +126,22 @@ def yoga_classifier():
         else:
             start_time = time.time()
             posture_timer = 0
-        if args.display:
+        if display:
             display = display_posture(frame, pose, posture_pred)
             if not display:
                 break
-        if args.save:
+        if output_path is not None:
             save_video(frame, out)
     cap.release()
-    if args.save:
+    if output_path is not None:
         out.release()
     cv2.destroyAllWindows()
-    
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Yoga posture classifier')
+    parser.add_argument('-i', '--input', type=str, required=True, help='Path to input video file or "camera" for webcam')
+    parser.add_argument('--display', action='store_true', help='Display the video stream with the predicted posture')
+    parser.add_argument('--output_path', type=str, help='Path to output video file')
+    parser.add_argument('--save_model_path', type=str, help='Path to save the trained SVM model')
+    args = parser.parse_args()
+
+    yoga_classifier(args.input, args.display, args.output_path, args.save_model_path)
