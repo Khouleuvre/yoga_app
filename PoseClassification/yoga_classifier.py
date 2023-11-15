@@ -70,7 +70,7 @@ def save_video(frame, out):
 
 def yoga_classifier(input_path, display=False, output_path=None, save_model_path=None):
     # Load the yoga postures and their labels
-    posture_dir = "./assets/images/train"
+    posture_dir = "/home/khaleb.dabakuyo@Digital-Grenoble.local/Documents/ACV/Panther_trainer2/assets/images/train"
     yoga_postures, yoga_posture_labels = load_yoga_postures(posture_dir)
 
     if save_model_path is not None and os.path.exists(save_model_path):
@@ -97,7 +97,7 @@ def yoga_classifier(input_path, display=False, output_path=None, save_model_path
 
     # Use the trained model to classify new images of the yoga postures
     if input_path == "camera":
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(1)
     else:
         cap = cv2.VideoCapture(input_path)
     if output_path is not None:
