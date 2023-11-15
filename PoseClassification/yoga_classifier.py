@@ -34,20 +34,24 @@ def train_svm_model(X_train, yoga_posture_labels):
     svm.fit(X_train, yoga_posture_labels)
     return svm
 
-def classify_posture(frame, pose, svm):
-    # Convert the frame to grayscale
-    frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # Detect the pose landmarks using Mediapipe
-    results = pose.process(frame_gray)
-    if results.pose_landmarks is not None:
-        # Extract the pose landmarks and calculate the HOG features
-        landmarks = np.array([[lmk.x, lmk.y] for lmk in results.pose_landmarks.landmark])
-        landmarks = landmarks.flatten()
-        # Predict the posture using the SVM model
-        posture_pred = svm.predict([landmarks])[0]
-    else:
-        posture_pred = None
-    return posture_pred
+def classify_posture(frame, pose, svm, threshold=0.75):
+        # Convert the frame to grayscale
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Detect the pose landmarks using Mediapipe
+        results = pose.process(frame_gray)
+        if results.pose_landmarks is not None:
+            # Extract the pose landmarks and calculate the HOG features
+            landmarks = np.array([[lmk.x, lmk.y] for lmk in results.pose_landmarks.landmark])
+            landmarks = landmarks.flatten()
+            # Predict the posture using the SVM model
+            scores = svm.decision_function([landmarks])
+            if np.max(scores) >= threshold:
+                posture_pred = svm.predict([landmarks])[0]
+            else:
+                posture_pred = None
+        else:
+            posture_pred = None
+        return posture_pred
 
 def display_posture(frame, pose, posture_pred):
     # Draw the pose landmarks and the predicted posture on the frame
@@ -131,3 +135,4 @@ def yoga_classifier():
     if args.save:
         out.release()
     cv2.destroyAllWindows()
+    
