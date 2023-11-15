@@ -22,7 +22,6 @@ svc_classifier = SvcClassifier(
 )
 svc_classifier.fit(show_value=False)
 
-
 # Fin initialisation
 
 stream_embedder.generate_embbedings()
