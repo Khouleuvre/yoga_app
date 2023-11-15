@@ -1,70 +1,65 @@
 import os
-from PoseClassification.bootstrap import BootstrapHelper
+from PoseClassification.bootstrap_copy import BootstrapHelper
+from datetime import datetime
+import cv2
 
 
 class StreamEmbedder:
     def __init__(
         self,
-        stream_image_in_dir: str,
+        stream_video: str,
         stream_image_out_dir: str,
         stream_csv_out_dir: str,
+        output_video_path: str,
     ):
-        self.stream_image_in_dir = stream_image_in_dir
+        self.stream_video = stream_video
         self.stream_image_out_dir = stream_image_out_dir
         self.stream_csv_out_dir = stream_csv_out_dir
+        self.output_video_path = output_video_path
         self.bootstrap_helper = BootstrapHelper(
-            images_in_folder=stream_image_in_dir,
             images_out_folder=stream_image_out_dir,
             csvs_out_folder=stream_csv_out_dir,
         )
-# Trouver une autre façon de coder cette fonction
-    def _is_unique_image_in_dir(self):
+
+    def _get_frame_from_stream(self):
         """
-        Returns true if the image is in the directory and there is only one (the last one to treat)
+        Returns the next frame from the video stream
         """
+        cap = cv2.VideoCapture(self.stream_video)
+        _, frame = cap.read()
+        cap.release()
+        return frame
 
-        _unique_folder = os.listdir(self.stream_image_in_dir)[0]
-        _unique_folder_path = os.path.join(self.stream_image_in_dir, _unique_folder)
-        files = os.listdir(_unique_folder_path)
-
-        if len(files) == 1:
-            # print("There are images in the directory")
-            return True
-        else:
-            # print("There are no images in the directory")
-            return False
-
-    def _clean_directory(self, directory: str) -> None:
-        for filename in os.listdir(directory):
-            file_path = os.path.join(directory, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print(f"Failed to delete {file_path}. Reason: {e}")
-# Trouver une autre façon de coder cette fonction
+    def _save_frame_to_directory(self, frame, directory):
+        """
+        Saves the given frame to the given directory
+        """
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        filename = f"{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.jpg"
+        filepath = os.path.join(directory, filename)
+        cv2.imwrite(filepath, frame)
+        
     def _remove_image_from_in_out_dir(self) -> None:
-        target_dir_to_clean_in = os.path.join(self.stream_image_in_dir, "stream")
-        target_dir_to_clean_out = os.path.join(self.stream_image_out_dir, "stream")
+        target_dir_to_clean_in = os.path.join(self.stream_image_out_dir, "stream")
         self._clean_directory(directory=target_dir_to_clean_in)
-        self._clean_directory(directory=target_dir_to_clean_out)
-
-    def _get_embeddings_from_stream(self):
-        """
-        Returns the embeddings from the stream
-        """
-
-        if self._is_unique_image_in_dir():
-            print("There is ONE image only in the directory")
-        else:
-            return false
 
     def generate_embbedings(self) -> None:
         """
-        Returns the embeddings from the stream
+        Returns the embeddings from the video stream
         """
 
         self.bootstrap_helper.bootstrap()
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(self.output_video_path, fourcc, 20.0, (640, 480))
+        while True:
+            frame = self._get_frame_from_stream()
+            self._save_frame_to_directory(frame, os.path.join(self.stream_image_out_dir, "stream"))
+            out.write(frame)
+            cv2.imshow('frame', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                self._save_frame_to_directory(frame, os.path.join(self.stream_image_out_dir, "stream"))
+                break
+        out.release()
         self._remove_image_from_in_out_dir()
+        cv2.destroyAllWindows()
