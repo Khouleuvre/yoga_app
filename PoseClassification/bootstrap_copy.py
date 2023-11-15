@@ -5,11 +5,11 @@ import os, csv
 from PIL import Image, ImageDraw
 import sys
 import tqdm
+import shutil
 
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 from mediapipe.python.solutions import pose as mp_pose
 
-from PoseClassification.utils import show_image
 
 class BootstrapHelper(object):
     """Helps to bootstrap images and filter pose samples for classification."""
@@ -28,23 +28,23 @@ class BootstrapHelper(object):
         """Bootstraps images in a given folder.
 
         Required image in folder (same use for image out folder):
-          pushups_up/
+            pushups_up/
             image_001.jpg
             image_002.jpg
             ...
-          pushups_down/
+            pushups_down/
             image_001.jpg
             image_002.jpg
             ...
-          ...
+            ...
 
         Produced CSVs out folder:
-          pushups_up.csv
-          pushups_down.csv
+            pushups_up.csv
+            pushups_down.csv
 
         Produced CSV structure with pose 3D landmarks:
-          sample_00001,x1,y1,z1,x2,y2,z2,....
-          sample_00002,x1,y1,z1,x2,y2,z2,....
+            sample_00001,x1,y1,z1,x2,y2,z2,....
+            sample_00002,x1,y1,z1,x2,y2,z2,....
         """
         # Create output folder for CVSs.
         if not os.path.exists(self._csvs_out_folder):
@@ -65,130 +65,82 @@ class BootstrapHelper(object):
                     csv_out_file, delimiter=",", quoting=csv.QUOTE_MINIMAL
                 )
                 # Get list of images.
-                image_names = sorted(
-                    [n for n in os.listdir(images_in_folder) if not n.startswith(".")]
-                )
+                image_files = [
+                    os.path.join(images_in_folder, f)
+                    for f in os.listdir(images_in_folder)
+                    if f.endswith(".jpg")
+                ]
                 if per_pose_class_limit is not None:
-                    image_names = image_names[:per_pose_class_limit]
+                    image_files = image_files[:per_pose_class_limit]
 
-                # Bootstrap every image.
-                for image_name in tqdm.tqdm(image_names):
-                    # Load image.
-                    input_frame = cv2.imread(os.path.join(images_in_folder, image_name))
-                    input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
+                # Process each image.
+                for image_file in tqdm.tqdm(image_files):
+                    # Read image.
+                    image = cv2.imread(image_file)
+                    image_height, image_width, _ = image.shape
 
-                    # Initialize fresh pose tracker and run it.
-                    # with mp_pose.Pose(upper_body_only=False) as pose_tracker:
-                    with mp_pose.Pose() as pose_tracker:
-                        result = pose_tracker.process(image=input_frame)
-                        pose_landmarks = result.pose_landmarks
+                    # Detect pose.
+                    with mp_pose.Pose(
+                        static_image_mode=True,
+                        model_complexity=2,
+                        min_detection_confidence=0.5,
+                    ) as pose:
+                        results = pose.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-                    # Save image with pose prediction (if pose was detected).
-                    output_frame = input_frame.copy()
-                    if pose_landmarks is not None:
-                        mp_drawing.draw_landmarks(
-                            image=output_frame,
-                            landmark_list=pose_landmarks,
-                            connections=mp_pose.POSE_CONNECTIONS,
-                        )
-                    output_frame = cv2.cvtColor(output_frame, cv2.COLOR_RGB2BGR)
-                    cv2.imwrite(
-                        os.path.join(images_out_folder, image_name), output_frame
-                    )
+                        # Skip if pose not detected.
+                        if not results.pose_landmarks:
+                            continue
 
-                    # Save landmarks if pose was detected.
-                    if pose_landmarks is not None:
-                        # Get landmarks.
-                        frame_height, frame_width = (
-                            output_frame.shape[0],
-                            output_frame.shape[1],
-                        )
-                        pose_landmarks = np.array(
-                            [
-                                [
-                                    lmk.x * frame_width,
-                                    lmk.y * frame_height,
-                                    lmk.z * frame_width,
-                                ]
-                                for lmk in pose_landmarks.landmark
-                            ],
-                            dtype=np.float32,
-                        )
-                        assert pose_landmarks.shape == (
-                            33,
-                            3,
-                        ), "Unexpected landmarks shape: {}".format(pose_landmarks.shape)
+                        # Write pose landmarks to CSV.
                         csv_out_writer.writerow(
-                            [image_name] + pose_landmarks.flatten().astype(str).tolist()
+                            [
+                                os.path.basename(image_file),
+                                *[
+                                    f"{lmk.x * image_width},{lmk.y * image_height},{lmk.z}"
+                                    for lmk in results.pose_landmarks.landmark
+                                ],
+                            ]
                         )
 
-                    # Draw XZ projection and concatenate with the image.
-                    projection_xz = self._draw_xz_projection(
-                        output_frame=output_frame, pose_landmarks=pose_landmarks
+                    # Save image with pose landmarks.
+                    mp_drawing.draw_landmarks(
+                        image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS
                     )
-                    output_frame = np.concatenate((output_frame, projection_xz), axis=1)
+                    cv2.imwrite(
+                        os.path.join(
+                            images_out_folder, os.path.basename(image_file)
+                        ),
+                        image,
+                    )
 
-    def _draw_xz_projection(self, output_frame, pose_landmarks, r=0.5, color="red"):
-        frame_height, frame_width = output_frame.shape[0], output_frame.shape[1]
-        img = Image.new("RGB", (frame_width, frame_height), color="white")
-
-        if pose_landmarks is None:
-            return np.asarray(img)
-
-        # Scale radius according to the image width.
-        r *= frame_width * 0.01
-
-        draw = ImageDraw.Draw(img)
-        for idx_1, idx_2 in mp_pose.POSE_CONNECTIONS:
-            # Flip Z and move hips center to the center of the image.
-            x1, y1, z1 = pose_landmarks[idx_1] * [1, 1, -1] + [0, 0, frame_height * 0.5]
-            x2, y2, z2 = pose_landmarks[idx_2] * [1, 1, -1] + [0, 0, frame_height * 0.5]
-
-            draw.ellipse([x1 - r, z1 - r, x1 + r, z1 + r], fill=color)
-            draw.ellipse([x2 - r, z2 - r, x2 + r, z2 + r], fill=color)
-            draw.line([x1, z1, x2, z2], width=int(r), fill=color)
-
-        return np.asarray(img)
-
-    def align_images_and_csvs(self, print_removed_items=False):
-        """Makes sure that image folders and CSVs have the same sample.
-
-        Leaves only intersetion of samples in both image folders and CSVs.
+    def _clean_directory(self, directory: str) -> None:
         """
-        for pose_class_name in self._pose_class_names:
-            # Paths for the pose class.
-            images_out_folder = os.path.join(self._images_out_folder, pose_class_name)
-            csv_out_path = os.path.join(self._csvs_out_folder, pose_class_name + ".csv")
+        Removes all files in the given directory
+        """
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Failed to delete {file_path}. Reason: {e}")
 
-            # Read CSV into memory.
-            rows = []
-            with open(csv_out_path) as csv_out_file:
-                csv_out_reader = csv.reader(csv_out_file, delimiter=",")
-                for row in csv_out_reader:
-                    rows.append(row)
+    
+    def _is_unique_image_in_dir(self):
+        """
+        Returns true if the image is in the directory and there is only one (the last one to treat)
+        """
 
-            # Image names left in CSV.
-            image_names_in_csv = []
+        _unique_folder = os.listdir(self._images_in_folder)[0]
+        _unique_folder_path = os.path.join(self._images_in_folder, _unique_folder)
+        files = os.listdir(_unique_folder_path)
 
-            # Re-write the CSV removing lines without corresponding images.
-            with open(csv_out_path, "w") as csv_out_file:
-                csv_out_writer = csv.writer(
-                    csv_out_file, delimiter=",", quoting=csv.QUOTE_MINIMAL
-                )
-                for row in rows:
-                    image_name = row[0]
-                    image_path = os.path.join(images_out_folder, image_name)
-                    if os.path.exists(image_path):
-                        image_names_in_csv.append(image_name)
-                        csv_out_writer.writerow(row)
-                    elif print_removed_items:
-                        print("Removed image from CSV: ", image_path)
-
-            # Remove images without corresponding line in CSV.
-            for image_name in os.listdir(images_out_folder):
-                if image_name not in image_names_in_csv:
-                    image_path = os.path.join(images_out_folder, image_name)
-                    os.remove(image_path)
-                    if print_removed_items:
-                        print("Removed image from folder: ", image_path)
-
+        if len(files) == 1:
+            # print("There are images in the directory")
+            return True
+        else:
+            # print("There are no images in the directory")
+            return False
+    
