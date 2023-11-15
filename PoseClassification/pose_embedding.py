@@ -172,12 +172,14 @@ class FullBodyPoseEmbedding(object):
                 self._get_distance_by_names(landmarks, "left_wrist", "right_wrist"),
                 self._get_distance_by_names(landmarks, "left_ankle", "right_ankle"),
                 # Body bent direction.
-                # self._get_distance(
-                #     self._get_average_by_names(landmarks, 'left_wrist', 'left_ankle'),
-                #     landmarks[self._landmark_names.index('left_hip')]),
-                # self._get_distance(
-                #     self._get_average_by_names(landmarks, 'right_wrist', 'right_ankle'),
-                #     landmarks[self._landmark_names.index('right_hip')]),
+                self._get_distance(
+                    self._get_average_by_names(landmarks, "left_wrist", "left_ankle"),
+                    landmarks[self._landmark_names.index("left_hip")],
+                ),
+                self._get_distance(
+                    self._get_average_by_names(landmarks, "right_wrist", "right_ankle"),
+                    landmarks[self._landmark_names.index("right_hip")],
+                ),
             ]
         )
 
