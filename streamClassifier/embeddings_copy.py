@@ -2,6 +2,63 @@ import os
 from PoseClassification.bootstrap_copy import BootstrapHelper
 from datetime import datetime
 import cv2
+from utils import build_dataframe, num_to_class_dict
+from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix, classification_report
+
+class PoseClassifier:
+    def __init__(self, stream_csv_dir: str, show_value: bool = True):
+        self._stream_csv_dir = stream_csv_dir
+        self._confusion_matrix = None
+        self._classification_report = None
+        self.model = None
+        self.show_value = show_value
+
+    def fit(self) -> None:
+        """
+        Trains the model
+        """
+        df = build_dataframe(source_dir=self._stream_csv_dir)
+        X = df.drop(
+            ["filename", "class", "class_num"], axis=1
+        )
+        y = df["class_num"]
+
+        svc = SVC(kernel="linear", C=1, gamma="auto")
+        svc.fit(X, y)
+
+        y_pred = svc.predict(X)
+        self._confusion_matrix = confusion_matrix(y, y_pred)
+        self._classification_report = classification_report(y, y_pred)
+        self.model = svc
+        
+        if self.show_value:
+            print("Confusion Matrix:")
+            print(self._confusion_matrix)
+            print("Classification Report:")
+            print(self._classification_report)
+
+    def predict(self) -> list:
+        """
+        Predicts the class of the input
+        """
+        if self.model is None:
+            raise Exception("Model not found. Run fit() first.")
+        
+        df = build_dataframe(source_dir=self._stream_csv_dir)
+        X = df.drop(
+            ["filename", "class", "class_num"], axis=1
+        )
+                
+        y_pred = self.model.predict(X)
+        
+        classnum_pred = y_pred[0]
+        classname_pred = num_to_class_dict[classnum_pred]
+        
+        print(f"Predicted class: {classname_pred}")
+        print(f"Predicted class number: {classnum_pred}")
+            
+
 
 
 class StreamEmbedder:
