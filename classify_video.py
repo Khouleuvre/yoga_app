@@ -7,10 +7,14 @@ import os
 import mediapipe as mp
 import matplotlib.pyplot as plt
 from IPython.display import HTML
+import warnings
+
 
 from streamClassifier.embeddings import StreamEmbedder
 from streamClassifier.classifier import SvcClassifier
 
+# Suppress the warning
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 # Variables
 cwd = os.getcwd()
 image_in_dir = os.path.join(cwd, "assets", "images", "stream_in")
@@ -115,7 +119,7 @@ def detectPose(image, pose, mp_drawing, display=True):
     # Otherwise
     else:
         # Return the output image and the found landmarks.
-        return output_image, landmarks
+        return output_image, landmarks, imageRGB
 
 
 def calculateAngle(landmark1, landmark2, landmark3):
@@ -341,6 +345,7 @@ def main():
     pose = mp_pose.Pose(
         static_image_mode=False, min_detection_confidence=0.5, model_complexity=1
     )
+
     mp_drawing = mp.solutions.drawing_utils
 
     out = None
@@ -360,29 +365,19 @@ def main():
         if not ret:
             break
 
-        frame, landmarks = detectPose(frame, pose, mp_drawing, display=False)
+        frame, landmarks, imageRGB = detectPose(frame, pose, mp_drawing, display=False)
+        # From Image to RGB we send it to bootstrap function get_landamrks
+
         if landmarks:
             frame, pose_label = classifyPose(landmarks, frame, display=False)
-            filename = f"frame_{frame_counter}.JPG"  # or .jpg for JPG format
-            filepath = os.path.join(image_in_dir, "stream", filename)
-
-            frame_counter += 1
-
-            current_time = round(time.time(), 0)
-            print(current_time)
+            current_time = round(time.time(), 1)
 
             if current_time % 1 == 0:
-                try:
-                    cv2.imwrite(filepath, frame)
-                    # print("OUI")
+                landmarks = stream_embedder.generate_embbedings(input_frame=imageRGB)
+                classname_pred = svc_classifier.predict_stream(data=landmarks)
 
-                    stream_embedder.generate_embbedings()
-                    svc_classifier.predict()
-                except:
-                    pass
+                print(f"Predicted class: {classname_pred}")
 
-            # stream_embedder.generate_embbedings()
-            # svc_classifier.predict()
 
             if pose_label != pose_actuelle:
                 pose_actuelle = pose_label

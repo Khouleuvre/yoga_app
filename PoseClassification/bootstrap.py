@@ -11,6 +11,7 @@ from mediapipe.python.solutions import pose as mp_pose
 
 from PoseClassification.utils import show_image
 
+
 class BootstrapHelper(object):
     """Helps to bootstrap images and filter pose samples for classification."""
 
@@ -76,7 +77,8 @@ class BootstrapHelper(object):
                     # Load image.
                     input_frame = cv2.imread(os.path.join(images_in_folder, image_name))
                     input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
-
+                    print("input_frame", input_frame)
+                    print("input_frame.shape", input_frame.shape)
                     # Initialize fresh pose tracker and run it.
                     # with mp_pose.Pose(upper_body_only=False) as pose_tracker:
                     with mp_pose.Pose() as pose_tracker:

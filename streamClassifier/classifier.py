@@ -1,5 +1,7 @@
 import pandas as pd
+import numpy as np
 import os
+
 
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
@@ -56,7 +58,25 @@ class SvcClassifier:
 
         return self._classification_report
 
-    def fit(self, show_value: bool = True):
+    def _compute_confidence_interval(
+        self,
+        decision_values: np.array,
+        confidence_threshold: float = 0.1,
+    ):
+        max_value = []
+        delta = []
+
+        for decision in decision_values:
+            # Get indices of two largest elements
+            indices = np.argsort(decision)[-2:]
+            largest_values = decision[indices]
+            delta.append(largest_values[1] - largest_values[0])
+            max_value.append(np.max(decision))
+
+        self.high_confidence_max = np.mean(max_value)  # * (1 + confidence_threshold)
+        self.high_confidence_delta = np.mean(delta)  # * (1 + confidence_threshold)
+
+    def fit(self, show_value: bool = True, confidence_threshold: float = 0.1):
         """
         Evaluates the model
         """
@@ -75,6 +95,12 @@ class SvcClassifier:
         self._confusion_matrix = confusion_matrix(y_test, y_pred)
         self._classification_report = classification_report(y_test, y_pred)
         self.model = svc
+        X = np.array(X_test)
+        X = np.reshape(X, (X.shape[0], -1))
+        decision_values = self.model.decision_function(X)
+        self._compute_confidence_interval(
+            decision_values=decision_values, confidence_threshold=confidence_threshold
+        )
 
         if show_value:
             print("Confusion Matrix:")
@@ -99,3 +125,38 @@ class SvcClassifier:
 
         print(f"Predicted class: {classname_pred}")
         print(f"Predicted class number: {classnum_pred}")
+
+    def predict_stream(self, data: np.array) -> tuple:
+        """
+        Predicts the class of the input
+        """
+        if self.model is None:
+            raise Exception("Model not found. Run fit() first.")
+
+        y_pred = self.model.predict(data)
+
+        classnum_pred = y_pred[0]
+        classname_pred = num_to_class_dict[classnum_pred]
+        decision_values = self.model.decision_function(data)
+
+        max_value = np.max(decision_values)
+        two_max_indices = np.argsort(decision_values)[0][-2:]
+
+        delta = (
+            decision_values[0][two_max_indices[1]]
+            - decision_values[0][two_max_indices[0]]
+        )
+
+        max_criteria = max_value > 4.31  # self.high_confidence_max
+        delta_criteria = delta < 1.01  # self.high_confidence_delta
+
+        print(f"Criteria Max: {self.high_confidence_max}")
+        print(f"Criteria Delta: {self.high_confidence_delta}")
+
+        print(f"Max value: {max_value}")
+        print(f"Delta: {delta}")
+
+        if max_criteria :
+            return classname_pred
+        else:
+            return "unknown"

@@ -16,17 +16,17 @@ stream_embedder = StreamEmbedder(
 )
 
 # stream_embedder.generate_embbedings()
-svc_classifier = SvcClassifier(
-    training_csv_dir=training_csv_dir,
-    stream_csv_dir=csv_out_dir,
-)
-svc_classifier.fit(show_value=False)
+# svc_classifier = SvcClassifier(
+#     training_csv_dir=training_csv_dir,
+#     stream_csv_dir=csv_out_dir,
+# )
+# svc_classifier.fit(show_value=False)
 
 # Fin initialisation
 
 stream_embedder.generate_embbedings()
-svc_classifier.predict()
-report  = svc_classifier.get_precision_infos()
+# svc_classifier.predict()
+# report  = svc_classifier.get_precision_infos()
 
-print(type(report))
+# print(type(report))
 
