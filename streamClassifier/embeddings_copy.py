@@ -103,7 +103,8 @@ class StreamEmbedder:
         Returns the embeddings from the video stream
         """
 
-        self.bootstrap_helper.bootstrap()
+        self.pose_classifier.fit()
+        self.pose_classifier.predict()
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(self.output_video_path, fourcc, 20.0, (640, 480))
         while True:
@@ -115,8 +116,7 @@ class StreamEmbedder:
                 self._save_frame_to_directory(frame, os.path.join(self.stream_image_out_dir, "stream"))
                 break
         out.release()
-        self.pose_classifier.fit()
-        self.pose_classifier.predict()
+
         self._remove_image_from_in_out_dir()
         self._remove_image_from_in_out_dir()
         cv2.destroyAllWindows()
