@@ -1,5 +1,4 @@
 import os
-from PoseClassification.bootstrap_copy import BootstrapHelper
 from datetime import datetime
 import cv2
 from utils import build_dataframe, num_to_class_dict
@@ -64,28 +63,26 @@ class PoseClassifier:
 class StreamEmbedder:
     def __init__(
         self,
-        stream_video: str,
-        stream_image_out_dir: str,
-        stream_csv_out_dir: str,
-        output_video_path: str,
+        stream_video: str = None,
+        stream_image_out_dir: str = "streamClassifier/data/images",
+        stream_csv_out_dir: str = "streamClassifier/data/csvs",
+        output_video_path: str ,
     ):
         self.stream_video = stream_video
         self.stream_image_out_dir = stream_image_out_dir
         self.stream_csv_out_dir = stream_csv_out_dir
         self.output_video_path = output_video_path
-        self.bootstrap_helper = BootstrapHelper(
-            images_out_folder=stream_image_out_dir,
-            csvs_out_folder=stream_csv_out_dir,
-        )
+        self.pose_classifier = PoseClassifier(stream_csv_dir=self.stream_csv_out_dir)
+        
 
     def _get_frame_from_stream(self):
-        """
-        Returns the next frame from the video stream
-        """
-        cap = cv2.VideoCapture(self.stream_video)
-        _, frame = cap.read()
-        cap.release()
-        return frame
+            """
+            Returns the next frame from the webcam
+            """
+            cap = cv2.VideoCapture(0)
+            _, frame = cap.read()
+            cap.release()
+            return frame
 
     def _save_frame_to_directory(self, frame, directory):
         """
@@ -118,5 +115,9 @@ class StreamEmbedder:
                 self._save_frame_to_directory(frame, os.path.join(self.stream_image_out_dir, "stream"))
                 break
         out.release()
+        self.pose_classifier.fit()
+        self.pose_classifier.predict()
+        self._remove_image_from_in_out_dir()
         self._remove_image_from_in_out_dir()
         cv2.destroyAllWindows()
+        

@@ -1,7 +1,7 @@
 import argparse
 from streamClassifier.classifier import SvcClassifier
 from streamClassifier. import PoseClassifier
-from streamClassifier.embeddings_copy import StreamEmbedder
+from streamClassifier.embeddings_copy import StreamEmbedder, PoseClassifier
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Yoga posture classifier')
