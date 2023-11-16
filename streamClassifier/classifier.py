@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 
 from sklearn.svm import SVC
@@ -56,7 +57,33 @@ class SvcClassifier:
 
         return self._classification_report
 
-    def fit(self, show_value: bool = True):
+    def _compute_confidence_interval(
+        self,
+        decision_values: np.array,
+        confidence_threshold: float = 0.1,
+    ):
+        # Initialize lists for high and low confidence predictions
+        high_confidence = []
+        low_confidence = []
+
+        for decision in decision_values:
+            # Get indices of two largest elements
+            indices = np.argsort(decision)[-2:]
+
+            # Extract the two largest values
+            largest_values = decision[indices]
+            delta = abs(decision[indices[0]] - decision[indices[1]])
+            mean_value = np.mean(delta)
+            print(f"Largest values: {delta}")
+
+        # Store high and low confidence predictions as instance variables
+        self.high_confidence = mean_value * (1 + confidence_threshold)
+        self.low_confidence = mean_value * (1 - confidence_threshold)
+
+        print(f"High confidence: {high_confidence}")
+        print(f"Low confidence: {low_confidence}")
+
+    def fit(self, show_value: bool = True, confidence_threshold: float = 0.5):
         """
         Evaluates the model
         """
@@ -75,6 +102,12 @@ class SvcClassifier:
         self._confusion_matrix = confusion_matrix(y_test, y_pred)
         self._classification_report = classification_report(y_test, y_pred)
         self.model = svc
+        X = np.array(X_test)
+        X = np.reshape(X, (X.shape[0], -1))
+        decision_values = self.model.decision_function(X)
+        self._compute_confidence_interval(
+            decision_values=decision_values, confidence_threshold=confidence_threshold
+        )
 
         if show_value:
             print("Confusion Matrix:")
@@ -99,3 +132,22 @@ class SvcClassifier:
 
         print(f"Predicted class: {classname_pred}")
         print(f"Predicted class number: {classnum_pred}")
+
+    def predict_stream(self, data: np.array) -> tuple:
+        """
+        Predicts the class of the input
+        """
+        if self.model is None:
+            raise Exception("Model not found. Run fit() first.")
+
+        y_pred = self.model.predict(data)
+
+        classnum_pred = y_pred[0]
+        classname_pred = num_to_class_dict[classnum_pred]
+        decision_values = self.model.decision_function(data)
+
+        print(f"Predicted class: {classname_pred}")
+        print(f"Predicted class number: {classnum_pred}")
+        print(f"Confidence: {decision_values}")
+
+        return classnum_pred, classname_pred, decision_values

@@ -98,6 +98,8 @@ class StreamEmbedder:
 
         # print(pose_landmarks)
         pose_landmarks = pose_landmarks.flatten().astype(str).tolist()
+        pose_landmarks = np.array(pose_landmarks)
+        pose_landmarks = pose_landmarks.reshape(1, -1)
         return pose_landmarks
 
     def generate_embbedings(self, input_frame: np.ndarray = None) -> None:
@@ -105,12 +107,4 @@ class StreamEmbedder:
         Returns the embeddings from the stream
         """
         landmarks = self._get_landmarks_from_rgb(input_frame=input_frame)
-        # if input_frame is None:
-        #     input_frame = os.listdir(self.stream_image_in_dir)[0]
-        #     print(f"image: {input_frame}")
-        # else:
-        #     pass
-        # self.bootstrap_helper.get_embeddings(input_frame=input_frame)
-        # self.bootstrap_helper.bootstrap()
-        # self._remove_image_from_in_out_dir()
         return landmarks

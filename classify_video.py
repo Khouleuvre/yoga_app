@@ -366,12 +366,11 @@ def main():
 
         if landmarks:
             frame, pose_label = classifyPose(landmarks, frame, display=False)
-
             current_time = round(time.time(), 1)
-            landmarks = stream_embedder.generate_embbedings(input_frame=imageRGB)
-            time.sleep(2)
-            # stream_embedder.generate_embbedings()
-            # svc_classifier.predict()
+            
+            if current_time % 1 == 0:
+                landmarks = stream_embedder.generate_embbedings(input_frame=imageRGB)
+                svc_classifier.predict_stream(data=landmarks)
 
             if pose_label != pose_actuelle:
                 pose_actuelle = pose_label
