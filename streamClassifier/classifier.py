@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
+
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
@@ -62,28 +63,20 @@ class SvcClassifier:
         decision_values: np.array,
         confidence_threshold: float = 0.1,
     ):
-        # Initialize lists for high and low confidence predictions
-        high_confidence = []
-        low_confidence = []
+        max_value = []
+        delta = []
 
         for decision in decision_values:
             # Get indices of two largest elements
             indices = np.argsort(decision)[-2:]
-
-            # Extract the two largest values
             largest_values = decision[indices]
-            delta = abs(decision[indices[0]] - decision[indices[1]])
-            mean_value = np.mean(delta)
-            print(f"Largest values: {delta}")
+            delta.append(largest_values[1] - largest_values[0])
+            max_value.append(np.max(decision))
 
-        # Store high and low confidence predictions as instance variables
-        self.high_confidence = mean_value * (1 + confidence_threshold)
-        self.low_confidence = mean_value * (1 - confidence_threshold)
+        self.high_confidence_max = np.mean(max_value)  # * (1 + confidence_threshold)
+        self.high_confidence_delta = np.mean(delta)  # * (1 + confidence_threshold)
 
-        print(f"High confidence: {high_confidence}")
-        print(f"Low confidence: {low_confidence}")
-
-    def fit(self, show_value: bool = True, confidence_threshold: float = 0.5):
+    def fit(self, show_value: bool = True, confidence_threshold: float = 0.1):
         """
         Evaluates the model
         """
@@ -146,8 +139,24 @@ class SvcClassifier:
         classname_pred = num_to_class_dict[classnum_pred]
         decision_values = self.model.decision_function(data)
 
-        print(f"Predicted class: {classname_pred}")
-        print(f"Predicted class number: {classnum_pred}")
-        print(f"Confidence: {decision_values}")
+        max_value = np.max(decision_values)
+        two_max_indices = np.argsort(decision_values)[0][-2:]
 
-        return classnum_pred, classname_pred, decision_values
+        delta = (
+            decision_values[0][two_max_indices[1]]
+            - decision_values[0][two_max_indices[0]]
+        )
+
+        max_criteria = max_value > 4.31  # self.high_confidence_max
+        delta_criteria = delta < 1.02  # self.high_confidence_delta
+
+        print(f"Criteria Max: {self.high_confidence_max}")
+        print(f"Criteria Delta: {self.high_confidence_delta}")
+
+        print(f"Max value: {max_value}")
+        print(f"Delta: {delta}")
+
+        if max_criteria and delta_criteria:
+            return classname_pred
+        else:
+            return "unknown"

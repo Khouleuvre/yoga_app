@@ -7,10 +7,14 @@ import os
 import mediapipe as mp
 import matplotlib.pyplot as plt
 from IPython.display import HTML
+import warnings
+
 
 from streamClassifier.embeddings import StreamEmbedder
 from streamClassifier.classifier import SvcClassifier
 
+# Suppress the warning
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 # Variables
 cwd = os.getcwd()
 image_in_dir = os.path.join(cwd, "assets", "images", "stream_in")
@@ -367,10 +371,13 @@ def main():
         if landmarks:
             frame, pose_label = classifyPose(landmarks, frame, display=False)
             current_time = round(time.time(), 1)
-            
+
             if current_time % 1 == 0:
                 landmarks = stream_embedder.generate_embbedings(input_frame=imageRGB)
-                svc_classifier.predict_stream(data=landmarks)
+                classname_pred = svc_classifier.predict_stream(data=landmarks)
+
+                print(f"Predicted class: {classname_pred}")
+
 
             if pose_label != pose_actuelle:
                 pose_actuelle = pose_label
