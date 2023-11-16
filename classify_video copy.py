@@ -362,74 +362,22 @@ def main():
 
         frame, landmarks = detectPose(frame, pose, mp_drawing, display=False)
         if landmarks:
-            frame, pose_label = classifyPose(landmarks, frame, display=False)
-            filename = f"frame_{frame_counter}.JPG"  # or .jpg for JPG format
-            filepath = os.path.join(image_in_dir, "stream", filename)
-
-            frame_counter += 1
-
-            current_time = round(time.time(), 0)
-            print(current_time)
-
-            if current_time % 1 == 0:
-                try:
-                    cv2.imwrite(filepath, frame)
-                    # print("OUI")
-
-                    stream_embedder.generate_embbedings()
-                    svc_classifier.predict()
-                except:
-                    pass
-
-            # stream_embedder.generate_embbedings()
-            # svc_classifier.predict()
-
-            if pose_label != pose_actuelle:
-                pose_actuelle = pose_label
-                temps_debut_pose = time.time()
-                temps_restant = duree_timer
-
-            if pose_actuelle and temps_debut_pose:
-                temps_ecoule = time.time() - temps_debut_pose
-                temps_restant = max(0, duree_timer - temps_ecoule)
-                cv2.putText(
-                    frame,
-                    f"Timer: {int(temps_restant)}s",
-                    (50, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 255, 0),
-                    2,
-                )
-
-                if temps_restant <= 0:
-                    cv2.putText(
-                        frame,
-                        "Pose maintenue pendant 30s!",
-                        (50, 100),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 255, 0),
-                        2,
-                    )
-
-            if (
-                pose_actuelle
-                and temps_restant < duree_timer
-                and temps_restant > 0
-                and pose_label == "Unknown Pose"
-            ):
-                cv2.putText(
-                    frame,
-                    "Pose perdue!",
-                    (50, 100),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 255),
-                    2,
-                )
-                pose_actuelle = None
-
+            posture_pred = classifyPose(landmarks, frame, display=False)
+            if posture_pred == "maintained":
+                posture_timer = time.time() - start_time
+                if posture_timer >= 30:
+                    # Flash the image
+                    cv2.imshow('frame', frame)
+                    cv2.waitKey(1000)
+                    cv2.imshow('frame', np.zeros_like(frame))
+                    cv2.waitKey(1000)
+                    # Display progress line
+                    posture_count += 1
+                    progress = int((posture_timer / 30) * 100)
+                    cv2.putText(frame, f"Progress: {progress}%", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            else:
+                start_time = time.time()
+                posture_timer = 0
         if args.output and not is_video_file:
             out.write(frame)
 

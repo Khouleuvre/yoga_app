@@ -48,8 +48,8 @@ class StreamEmbedder:
     def _remove_image_from_in_out_dir(self) -> None:
         target_dir_to_clean_in = os.path.join(self.stream_image_in_dir, "stream")
         target_dir_to_clean_out = os.path.join(self.stream_image_out_dir, "stream")
-        self._clean_directory(directory=target_dir_to_clean_in)
-        self._clean_directory(directory=target_dir_to_clean_out)
+        # self._clean_directory(directory=target_dir_to_clean_in)
+        # self._clean_directory(directory=target_dir_to_clean_out)
 
     def _get_embeddings_from_stream(self):
         """
